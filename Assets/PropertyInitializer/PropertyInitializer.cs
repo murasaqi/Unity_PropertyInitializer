@@ -6,66 +6,161 @@ using System.Reflection;
 using Unity.VisualScripting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 
 [Serializable] 
 public class CopyFieldInfo
 {
-    public object copyFromObject;
-    public object copyToObject;
-    public FieldInfo copyFromFieldInfo;
-    public FieldInfo copyToFieldInfo;
+    public object referenceObject;
+    public object applyTargetObject;
+    public FieldInfo referenceFieldInfo;
+    public FieldInfo applyTargetFieldInfo;
     
-    public CopyFieldInfo (object copyFromObject, object copyToObject,string propertyPath)
-    {
-        var copyFieldInfo = copyToObject.GetType().GetField(propertyPath, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        var originalFieldInfo = copyFromObject.GetType().GetField(propertyPath, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+    public PropertyInitializerSerializedValue serializedValues = new PropertyInitializerSerializedValue();
 
-        if(copyFieldInfo ==null || originalFieldInfo == null)
+    public CopyFieldInfo (object referenceObject, object applyTargetObject,string propertyPath)
+    {
+        var referenceFieldInfo = referenceObject.GetType().GetField(propertyPath, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        var applyTargetFieldInfo = applyTargetObject.GetType().GetField(propertyPath, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+       
+      
+        if(referenceFieldInfo ==null || applyTargetFieldInfo == null)
         {
             Debug.LogError("FieldInfo is null");
             return;
         }
-        this.copyFromObject = copyFromObject;
-        this.copyToObject = copyToObject;
-        this.copyFromFieldInfo = copyFieldInfo;
-        this.copyToFieldInfo = originalFieldInfo;
-    }
-    
+        
+        this.referenceObject = referenceObject;
+        this.applyTargetObject = applyTargetObject;
+        this.referenceFieldInfo = referenceFieldInfo;
+        this.applyTargetFieldInfo = applyTargetFieldInfo;
+        serializedValues = new PropertyInitializerSerializedValue()
+        {
+            name = referenceFieldInfo.Name,
+            type = referenceFieldInfo.FieldType.ToString(),
+            value = JsonUtility.ToJson(this.referenceFieldInfo.GetValue(this.referenceObject))
+        };
 
-    public void CopyValueFromTo()
+        
+    }
+
+
+    public object StrListToValue(Type type, List<string> values)
     {
-        var value = copyFromFieldInfo.GetValue(copyFromObject);
+        if(type.IsArray)
+        {
+            var elementType = type.GetElementType();
+            var array = Array.CreateInstance(elementType, values.Count);
+            for (int i = 0; i < values.Count; i++)
+            {
+                array.SetValue(Convert.ChangeType(values[i], elementType), i);
+            }
+            return array;
+        }
+        else if(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+        {
+            var elementType = type.GetGenericArguments()[0];
+            var list = (IList)Activator.CreateInstance(type);
+            foreach (var value in values)
+            {
+                list.Add(Convert.ChangeType(value, elementType));
+            }
+            return list;
+        }
+        else
+        {
+            return Convert.ChangeType(values[0], type);
+        }
+    }
+
+    public string ValueToJson(object value)
+    {
+        return JsonUtility.ToJson(value);
         var valueType = value.GetType();
+        var result = new List<string>();
         if (valueType.IsArray)
         {
             var copyArray = value as Array;
-            var newArray = Array.CreateInstance(copyArray.GetType().GetElementType(),copyArray.Length);
             for (int i = 0; i < copyArray.Length; i++)
             {
-                newArray.SetValue(copyArray.GetValue(i),i);
+                result.Add(copyArray.GetValue(i).ToString());
             }
-            copyToFieldInfo.SetValue(copyToObject,newArray);
+          
         }else if (valueType.IsGenericType && valueType.GetGenericTypeDefinition() == typeof(List<>))
         {
             var copyList = value as IList;
-            var newList = (IList)Activator.CreateInstance(valueType);
             foreach (var item in copyList)
             {
-                newList.Add(item);
+                result.Add(item.ToString());
             }
-            copyToFieldInfo.SetValue(copyToObject,newList);
         }else
         {
-            copyToFieldInfo.SetValue(copyToObject,value);
+            result.Add(value.ToString());
         }
-       
+
+        // return result;
+    }
+   
+    public object GetCopyValue(FieldInfo fieldInfo, object target)
+    {
+        var value =  PropertyInitializerUtility.DeepCopy(fieldInfo.GetValue(target));
+        var valueType = value.GetType();
+        //
+        // if (valueType.IsArray)
+        // {
+        //     var copyArray = value as Array;
+        //     var newArray = Array.CreateInstance(copyArray.GetType().GetElementType(),copyArray.Length);
+        //     for (int i = 0; i < copyArray.Length; i++)
+        //     {
+        //         newArray.SetValue(copyArray.GetValue(i),i);
+        //     }
+        //
+        //     return newArray;
+        //
+        // }else if (valueType.IsGenericType && valueType.GetGenericTypeDefinition() == typeof(List<>))
+        // {
+        //     var copyList = value as IList;
+        //     var newList = (IList)Activator.CreateInstance(valueType);
+        //     foreach (var item in copyList)
+        //     {
+        //         newList.Add(item);
+        //     }
+        //     return newList;
+        // }else
+        // {
+        //     return value;
+        // }
+
+        return value;
+    }
+
+    public void CopyValueFromTo()
+    {
+        var type = Type.GetType(serializedValues.type);
+        if (type == null)
+        {
+            type =Assembly.Load("UnityEngine.dll").GetType(serializedValues.type);
+        }
+
+        var value = JsonUtility.FromJson(serializedValues.value, type);
+        Debug.Log(value);
+        JsonUtility.FromJsonOverwrite(serializedValues.value,applyTargetFieldInfo);
+        // if(type != null)applyTargetFieldInfo.SetValue(applyTargetObject, JsonUtility.FromJson(serializedValues.value,type));
+        // var value = GetCopyValue(referenceFieldInfo,referenceObject);
+        // var applyTargetValue = GetCopyValue(applyTargetFieldInfo,applyTargetObject);
+        // Debug.Log($"ref: {value},apply: {applyTargetValue}");
+        // Debug.Log($"Befor: {applyTargetFieldInfo.GetValue(applyTargetObject)}");
+        // applyTargetFieldInfo.SetValue(applyTargetObject,value);
+        //
+        // Debug.Log($"After: {applyTargetFieldInfo.GetValue(applyTargetObject)}");
+
     }
     
-    public void CopyValueToFrom()
-    {
-        copyFromFieldInfo.SetValue(copyFromObject,copyToFieldInfo.GetValue(copyToObject));
-    }
+    // public void CopyValueToFrom()
+    // {
+    //     referenceFieldInfo.SetValue(referenceObject,applyTargetFieldInfo.GetValue(applyTargetObject));
+    // }
 
 }
 
@@ -76,6 +171,8 @@ public class PropertyInitializer : MonoBehaviour
     [SerializeField]public List<PropertyInitializerElement> propertyInitializerElements = new List<PropertyInitializerElement>();
 
     public List<MonoBehaviour> targetObjects = new List<MonoBehaviour>();
+    
+    // public List<PropertyInitializerSerializedValue> serializedValues = new List<PropertyInitializerSerializedValue>();
     void Start()
     {
         Init();
@@ -119,6 +216,11 @@ public class PropertyInitializer : MonoBehaviour
 
         propertyInitializerElements.DistinctBy(x => x.targetObject);
 
+        foreach (var propertyInitializer in propertyInitializerElements)
+        {
+            propertyInitializer.Init();
+            
+        }
 
         
         foreach (Transform child in transform)
@@ -172,6 +274,26 @@ public class PropertyInitializer : MonoBehaviour
             }
 
         }
+        
+        
+        
+        // serializedValues.Clear();
+        //
+        // foreach(var propertyInitializerElement in propertyInitializerElements)
+        // {
+        //     foreach (var v in propertyInitializerElement.serializedFieldInfoPair.Values)
+        //     {
+        //         var value = v.GetCopyValue(v.referenceFieldInfo, v.referenceObject);
+        //
+        //         var item = new PropertyInitializerSerializedValue()
+        //         {
+        //             name = v.referenceFieldInfo.Name,
+        //             type = value.GetType().ToString(),
+        //             value = v.ValueToStringList(value)
+        //         };
+        //         serializedValues.Add(item);
+        //     }
+        // }
     }
 
     public MonoBehaviour GetClone(MonoBehaviour target)

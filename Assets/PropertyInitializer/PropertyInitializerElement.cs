@@ -1,7 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using Unity.VisualScripting;
 using UnityEditor;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
 
@@ -18,6 +21,8 @@ public class PropertyInitializerElement: MonoBehaviour
     [SerializeField]public List<string> initializePropertyNameList = new List<string>();
     [SerializeField]public Dictionary<string,CopyFieldInfo> serializedFieldInfoPair = new Dictionary<string, CopyFieldInfo>();
     [SerializeField]public List<CopyFieldInfo> initializeFieldList = new List<CopyFieldInfo>();
+
+    public string json;
 
     public void Aplly(Transform parent, MonoBehaviour targetObject, MonoBehaviour cloneObject)
     {
@@ -39,8 +44,8 @@ public class PropertyInitializerElement: MonoBehaviour
     public void Init()
     {
         TryGetSerializedFields();
-        
-        
+
+        json = JsonUtility.ToJson(targetObject);
 
         foreach (var propertyName in initializePropertyNameList)
         {
@@ -56,14 +61,17 @@ public class PropertyInitializerElement: MonoBehaviour
         if(targetObject == null) return;
         serializedPropertyNameList.Clear();
         serializedFieldInfoPair.Clear();
+        initializeFieldList.Clear();
         var fields = targetObject.GetType().GetFields(BindingFlags.Public| BindingFlags.NonPublic | BindingFlags.Instance);
 
         foreach (var field in fields)
         {
-            if (field.IsPublic || FieldInfoExtension.IsSerializable(field))
+            if (field.IsPublic || PropertyInitializerUtility.IsSerializable(field))
             {
+                var copyFieldInfo = new CopyFieldInfo(cloneObject, targetObject, field.Name);
                 serializedPropertyNameList.Add(field.Name);
-                serializedFieldInfoPair.Add(field.Name,new CopyFieldInfo(cloneObject,targetObject,field.Name));
+                serializedFieldInfoPair.Add(field.Name,copyFieldInfo);
+                initializeFieldList.Add(copyFieldInfo);
             }
         }
     }
@@ -117,20 +125,25 @@ public class PropertyInitializerElement: MonoBehaviour
     // }
     public void MoveCopyList(string key)
     {
-        if(!serializedFieldInfoPair.ContainsKey(key)) return;
         if(!initializePropertyNameList.Contains(key))initializePropertyNameList.Add(key);
-        var copyFieldInfo = serializedFieldInfoPair[key];
-        if (!initializeFieldList.Contains(copyFieldInfo))
-        {
-            initializeFieldList.Add(copyFieldInfo);
-        }
+
+        // if (serializedFieldInfoPair.ContainsKey(key))
+        // {
+        //     var copyFieldInfo = serializedFieldInfoPair[key];
+        //     initializeFieldList.Add(copyFieldInfo);
+        //     
+        // }
+        // initializeFieldList.DistinctBy(x => x.serializedValues.name);
     }
 
     public void ApplyPropertyValue()
     {
-        foreach (CopyFieldInfo copyFieldInfo in initializeFieldList)
+
+        // JsonUtility.FromJsonOverwrite(json, targetObject);
+        // AssetDatabase.SaveAssets();
+        foreach (var initialize in initializeFieldList)
         {
-            copyFieldInfo.CopyValueFromTo();
+            initialize.CopyValueFromTo();
             
         }
     }

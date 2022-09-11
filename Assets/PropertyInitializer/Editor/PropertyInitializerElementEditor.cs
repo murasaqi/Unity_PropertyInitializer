@@ -41,9 +41,12 @@ public class PropertyInitializerUI
         addPropertyContainer.Add(addButton);
         addPropertyContainer.Add(clearButton);
         root.Add(new Label(serializedObject.targetObject.name));
-        root.Add(new PropertyField(serializedObject.FindProperty("propertyNameList")));
-        root.Add(new PropertyField(serializedObject.FindProperty("visiblePropertyNameList")));
-        root.Add(new PropertyField(serializedObject.FindProperty("copyFieldList")));
+        root.Add(new PropertyField(serializedObject.FindProperty("serializedPropertyNameList")));
+        root.Add(new PropertyField(serializedObject.FindProperty("initializePropertyNameList")));
+        root.Add(new PropertyField(serializedObject.FindProperty("serializedFieldInfoPair")));
+        root.Add(new PropertyField(serializedObject.FindProperty("initializeFieldList")));
+        root.Add(new PropertyField(serializedObject.FindProperty("json")));
+        
         root.Add(targetObjectField);
         
         
@@ -265,6 +268,7 @@ public class PropertyInitializerEditor: Editor
          root.Add(new PropertyField(serializedObject.FindProperty("targetObjects")));
          root.Add(new PropertyField(serializedObject.FindProperty("propertyInitializerElements")));
          
+         root.Add(new PropertyField(serializedObject.FindProperty("serializedValues")));
 
          
          return root;

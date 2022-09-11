@@ -12,4 +12,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 32791f39b6f8f5c40b953487696c9b90, type: 3}
   m_Name: PropertyInitializeValueAsset
   m_EditorClassIdentifier: 
-  objects: []

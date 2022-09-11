@@ -6,7 +6,7 @@ using UnityEngine;
 
 
 [Serializable]
-public struct SerializedValue
+public struct PropertyInitializerSerializedValue
 {
     public string name;
     public string type;
@@ -18,7 +18,7 @@ public struct SerializedValue
 
 public class PropertyInitializeValue : ScriptableObject
 {
-    public List<SerializedValue> serializedValues = new List<SerializedValue>();
+    // public List<SerializedValue> serializedValues = new List<SerializedValue>();
 
     public PropertyInitializeValue()
     {
