@@ -5,8 +5,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization.Formatters.Binary;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Unity.VisualScripting;
 using UnityEditor.UIElements;
+using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -208,7 +211,28 @@ public static class PropertyInitializerUtility
 
         return field;
     }
-    public static VisualElement GetBaseField<T>(object value, EventCallback<ChangeEvent<T>> callback  =null)
+
+    public static Type SystemTypeToUnityObjectType(Type type)
+    {
+        Type convertedType = null;
+        if(type == typeof(System.Int32)) convertedType = typeof(int);
+        if(type == typeof(System.Int64)) convertedType = typeof(long);
+        if(type == typeof(System.Single)) convertedType = typeof(float);
+        if(type == typeof(System.Double)) convertedType = typeof(double);
+        if(type == typeof(System.Boolean)) convertedType = typeof(bool);
+        if(type == typeof(System.String)) convertedType = typeof(string);
+        if(type == typeof(System.Char)) convertedType = typeof(char);
+        if(type == typeof(System.Byte)) convertedType = typeof(byte);
+        if(type == typeof(System.SByte)) convertedType = typeof(sbyte);
+        if(type == typeof(System.UInt16)) convertedType = typeof(ushort);
+        if(type == typeof(System.UInt32)) convertedType = typeof(uint);
+        if(type == typeof(System.UInt64)) convertedType = typeof(ulong);
+        if(type == typeof(System.Decimal)) convertedType = typeof(decimal);
+        // if(type == typeof(System.Object)) convertedType = typeof(object);
+        // if(type == typeof(System.Void)) convertedType = typeof(void);
+        return convertedType;
+    }
+    public static VisualElement GetBaseField<T>(object value, string key =null, object databe = null)
     {
         var type = typeof(T);
         VisualElement field = null;
@@ -259,31 +283,66 @@ public static class PropertyInitializerUtility
             Debug.Log(value);
             var elementType = type.GetGenericArguments()[0];
             var values = value as IList;
-            
 
+            var listView = new ListView();
             Func<VisualElement> makeItem = () =>
             {
                 MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
                 MethodInfo generic = method.MakeGenericMethod(elementType);
-                return generic.Invoke(null, new object[] { null ,null}) as VisualElement;
+                var inputField = generic.Invoke(null, new object[] { null ,key,databe}) as VisualElement;
+                // inputField.Insert(0,new Label());
+
+                return inputField;
             };
 
             Action<VisualElement, int> bindItem = (e, i) =>
             {
+                
                 var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
                 property.SetValue(e, values[i]);
+                Debug.Log(property.GetValue(e));
+                // e.Q<Label>().text = $"{key}:{i}";
+                // e.name = $"{key}:{i}";
+
             };
 
             const int itemHeight = 16;
 
-            var listView = new ListView(values, itemHeight, makeItem, bindItem);
-
+            listView.itemsSource = values;
+            listView.fixedItemHeight = itemHeight;
+            listView.makeItem = makeItem;
+            listView.bindItem = bindItem;
             listView.selectionType = SelectionType.Multiple;
 
             listView.onItemsChosen += objects => Debug.Log(objects);
-            listView.onSelectionChange += objects => Debug.Log(objects);
+            listView.onSelectionChange += objects =>
+            {
+                // var container =listView.Q<VisualElement>("unity-content-container");
+                // for (int i = 0; i < container.childCount; i++)
+                // {
+                //
+                //     var inputField = container[i].ElementAt(1);
+                //     if (inputField.GetType().DeclaringType == typeof(UnityEngine.UIElements.TextField))
+                //     {
+                //         var textField = container[i].Q<TextField>();
+                //         var jsonSerializeTest = databe as JsonSerializeTest;
+                //
+                //         var propertyPath = textField.name.Split(",").First();
+                //         // var index = textField.na;
+                //         Debug.Log(jsonSerializeTest.jObject[propertyPath]);
+                //         // Debug.Log(textField.value);
+                //     }
+                //     else
+                //     {
+                //         
+                //     }
+                //     
+                //    
+                // }
+            };
 
             listView.style.flexGrow = 1.0f;
+
             field = listView;
             
         }
@@ -336,28 +395,75 @@ public static class PropertyInitializerUtility
                 var objectField= new ObjectField();
                 objectField.objectType = type;
                 objectField.value = (UnityEngine.Object)value;
+               
                 field = objectField;
             }
+
+
+            field.name = key;
             
-            field.RegisterCallback<ChangeEvent<T>>((e) =>
+            var f = field as BaseField<T>;
+
+            if (key != null)
             {
-                Debug.Log(e.newValue);
-            });
+                f.label = key;
+                f.name = key;
+            }
+            
+            f.RegisterValueChangedCallback((evt =>
+            {
+                if (databe != null)
+                {
+                    var names=f.name.Split(":");
+                    var propertyPath = names[0];
+                    var jsonSerializerTest = databe as JsonSerializeTest;
+                    if (names.Length == 1)
+                    {
+                        jsonSerializerTest.jObject[propertyPath] = JToken.FromObject(evt.newValue);     
+                    }
+                    else
+                    {
+                        Debug.Log(jsonSerializerTest.jObject[propertyPath]);
+                    }
+                   
+                    // Debug.Log($"{jsonSerializerTest.jObject[key]}");
+                    jsonSerializerTest.SaveToJsonText();
+                }
+               
+                
+            }));
 
-            var method = typeof(INotifyValueChangedExtensions).GetMethod("RegisterValueChangedCallback", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)
-                .MakeGenericMethod(type);
-          
-            method.Invoke(field, new object[] { null, callback });
-            Debug.Log(method);
 
+            // var methods =  typeof(BaseField<>).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            
+            // Debug.Log(typeof(BaseField<T>));
+            // Type delegateType = typeof(BaseField<>).GetEvent("RegisterValueChangedCallback").EventHandlerType;
+            // Debug.Log(delegateType);
+            // MethodInfo invoke = delegateType.GetMethod("Invoke");
+            // ParameterInfo[] pars = invoke.GetParameters();
+            // var method = f.GetType().GetInterface("INotifyValueChangedExtensions").GetMethod("RegisterValueChangedCallback", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)
+            //     .MakeGenericMethod(type);
+            // //
+            // // method.Invoke(field, new object[] { null, callback });
+            // Debug.Log(method);
+            //
+            // Debug.Log(Type.GetType("UnityEngine.UIElements.EventCallback`1"));
         }
                 
         return field;
 
 
     }
-    
-    
+
+
+    // private static void SetLabel(object inputField, string text)
+    // {
+    //     dynamic baseField = inputField as dynamic;
+    //     baseField.label = text;
+    // }
+  
+
+
     static T BinaryCopy<T>(T source)
     {
         if (!typeof(T).IsSerializable)

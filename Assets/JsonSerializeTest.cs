@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -9,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+
 using Newtonsoft.Json.Serialization;
 using Newtonsoft.Json.Utilities;
 
@@ -38,14 +37,18 @@ public class JsonSerializeTestEditor: Editor
                 var propertyField = new PropertyField(property);
                 VisualElement field = null;
                 
+                // TODO : JsonのKeyからプロパティを算出してそのプロパティの型にキャストしたJsonのValueで初期化する
+                // https://tech-and-investment.com/json5-parse/
+
                 field =typeof(PropertyInitializerUtility)
                     .GetMethod("GetBaseField")
                     .MakeGenericMethod(f.FieldType)
-                    .Invoke(null, new object[] { f.GetValue(serializedTargetObject.targetObject) ,null}) as VisualElement;
+                    .Invoke(null, new object[] { f.GetValue(serializedTargetObject.targetObject),f.Name ,jsonSerializeTest}) as VisualElement;
                 
                 if(field !=null)root.Add(field);
             }
         }
+        
         
 
         var serializeButton = new Button();
@@ -60,6 +63,8 @@ public class JsonSerializeTestEditor: Editor
         // root.Add(button);
         return root;
     }
+
+   
 }
 [ExecuteAlways]
 public class JsonSerializeTest : MonoBehaviour
@@ -75,11 +80,17 @@ public class JsonSerializeTest : MonoBehaviour
         
     }
 
+
+    public void OnValidate()
+    {
+        throw new NotImplementedException();
+    }
     [ContextMenu("Serialize")]
     public void ToJson()
     {
         json = JsonUtility.ToJson(target);
         var deserialized = JsonConvert.DeserializeObject(json);
+        Debug.Log(deserialized);
         var fields = target.GetType().GetFields( BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
         foreach (var f in fields)
@@ -115,6 +126,11 @@ public class JsonSerializeTest : MonoBehaviour
             } 
 
         }
+    }
+
+    public void SaveToJsonText()
+    {
+        json = jObject.ToString();
     }
     // Update is called once per frame
     void Update()
