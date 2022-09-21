@@ -385,51 +385,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 086ea7773de89ce4384e7bd707f1f8b8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  testFloat: 1
+  testFloat: 0
   testStringList:
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
-  - 4
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  testIntList: 0100000002000000
+  testFloatList:
+  - 1
+  - 2
+  testBoolArray: 010000
 --- !u!4 &733758235
 Transform:
   m_ObjectHideFlags: 0
@@ -524,7 +496,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 733758234}
-  json: '{"testFloat":1.0,"testStringList":["4"]}'
+  json: "{\r\n  \"testFloat\": 0.0,\r\n  \"testStringList\": \"\\r\\n 1\\r\\n\",\r\n 
+    \"testIntList\": 2,\r\n  \"testFloatList\": 2.0,\r\n  \"testBoolArray\": [\r\n   
+    true,\r\n    false,\r\n    false\r\n  ]\r\n}"
+  serializedPropertyInfos:
+  - name: testFloat
+    type: System.Single
+    value: 0
+  - name: testStringList
+    type: System.Collections.Generic.List`1[System.String]
+    value: "[\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n 
+      \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\"\r\n]"
+  - name: testIntList
+    type: System.Collections.Generic.List`1[System.Int32]
+    value: "[\r\n  1,\r\n  2\r\n]"
+  - name: testFloatList
+    type: System.Collections.Generic.List`1[System.Single]
+    value: "[\r\n  1.0,\r\n  2.0\r\n]"
+  - name: testBoolArray
+    type: System.Boolean[]
+    value: "[\r\n  true,\r\n  false,\r\n  false\r\n]"
 --- !u!4 &2088214221
 Transform:
   m_ObjectHideFlags: 0

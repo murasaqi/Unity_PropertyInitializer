@@ -242,40 +242,44 @@ public static class PropertyInitializerUtility
             var array = value as Array;
             if (array == null)
             {
-                // throw new Exception
                 return null;
             }
 
-            // Debug.Log(array);
-            // T[]のインスタンスを作成
-            var copiedArray = Array.CreateInstance(type, array.Length);
-
-            // 要素をコピー
-            foreach (var i in Enumerable.Range(0, array.Length))
-            {
-                copiedArray.SetValue(DeepCopy(array.GetValue(i)), i);
-            }
+            var elementType = typeof(T).GetType().ToString().Replace("[]", "");
+            var deepCopiedArray = DeepCopy(array) as Array;
 
             
-            Func<VisualElement> makeItem = () => new Label();
+            Func<VisualElement> makeItem = () =>
+            {
+                Debug.Log(elementType);
+                MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
+                MethodInfo generic = method.MakeGenericMethod(Type.GetType(elementType));
+                var inputField = generic.Invoke(null, new object[] { null ,key,databe}) as VisualElement;
+                // inputField.Insert(0,new Label());
 
-            // As the user scrolls through the list, the ListView object
-            // recycles elements created by the "makeItem" function,
-            // and invoke the "bindItem" callback to associate
-            // the element with the matching data item (specified as an index in the list).
-            Action<VisualElement, int> bindItem = (e, i) => (e as Label).text = copiedArray.GetValue(i).ToString();
+                return inputField;
+            };
 
-            // Provide the list view with an explict height for every row
-            // so it can calculate how many items to actually display
+            Action<VisualElement, int> bindItem = (e, i) =>
+            {
+                
+                var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
+                property.SetValue(e, array.GetValue(i));
+                // Debug.Log(property.GetValue(e));
+                // e.Q<Label>().text = $"{key}:{i}";
+                // e.name = $"{key}:{i}";
+
+            };
             const int itemHeight = 16;
 
-            var listView = new ListView(copiedArray, itemHeight, makeItem, bindItem);
+            var listView = new ListView(deepCopiedArray, itemHeight, makeItem, bindItem);
 
             listView.selectionType = SelectionType.Multiple;
 
             listView.onItemsChosen += objects => Debug.Log(objects);
             listView.onSelectionChange += objects => Debug.Log(objects);
-
+            listView.showFoldoutHeader = true;
+            listView.showBoundCollectionSize = true;    
             listView.style.flexGrow = 1.0f;
             field = listView;
         } else if (type.IsGenericType &&  type.GetGenericTypeDefinition() == typeof(List<>))
@@ -300,7 +304,7 @@ public static class PropertyInitializerUtility
                 
                 var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
                 property.SetValue(e, values[i]);
-                Debug.Log(property.GetValue(e));
+                // Debug.Log(property.GetValue(e));
                 // e.Q<Label>().text = $"{key}:{i}";
                 // e.name = $"{key}:{i}";
 
@@ -351,37 +355,37 @@ public static class PropertyInitializerUtility
             if (type == typeof(System.Int32) || type == typeof(int))
             {
                 var integerField= new IntegerField();
-                integerField.value = (int)value;
+                if(value != null)integerField.value = (int)value;
                 field = integerField;
             }
             else if (type == typeof(System.Single) || type == typeof(float))
             {
                 var floatField= new FloatField();
-                floatField.value = (float)value;
+                if(value != null)floatField.value = (float)value;
                 field = floatField;
             }
             else if (type == typeof(System.Double) || type == typeof(double))
             {
                 var doubleField= new DoubleField();
-                doubleField.value = (double)value;
+                if(value != null)doubleField.value = (double)value;
                 field = doubleField;
             }
             else if (type == typeof(System.Boolean) || type == typeof(bool))
             {
-                var toggle= new Toggle();
-                toggle.value = (bool)value;
+                var toggle = new Toggle();
+                if(value != null)toggle.value = (bool)value;
                 field = toggle;
             }
             else if (type == typeof(System.String) || type == typeof(string))
             {
                 var textField= new TextField();
-                textField.value = (string)value;
+                if(value != null)textField.value = (string)value;
                 field = textField;
             }
             else if (type == typeof(System.Enum) || type.IsEnum)
             {
                 var enumField= new EnumField();
-                enumField.value = (Enum)value;
+                if(value != null)enumField.value = (Enum)value;
                 field = enumField;
             }
             else if (type == typeof(Color))
