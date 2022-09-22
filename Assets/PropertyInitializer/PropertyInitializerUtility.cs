@@ -8,6 +8,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Unity.VisualScripting;
+using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEditor.VersionControl;
 using UnityEngine;
@@ -134,7 +135,6 @@ public static class PropertyInitializerUtility
     
     public static ListView CreateEmptyListView()
     {
-        const int itemHeight = 16;
         var listView = new ListView();
         listView.showAddRemoveFooter = true;
         listView.selectionType = SelectionType.Multiple;
@@ -144,7 +144,8 @@ public static class PropertyInitializerUtility
         listView.showFoldoutHeader = true;
         listView.showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly;
         listView.showBoundCollectionSize = true;
-        listView.showAddRemoveFooter = true;
+        listView.showAddRemoveFooter = false;
+     
         return listView;
     }
 
@@ -164,15 +165,13 @@ public static class PropertyInitializerUtility
         if(type == typeof(System.UInt32)) convertedType = typeof(uint);
         if(type == typeof(System.UInt64)) convertedType = typeof(ulong);
         if(type == typeof(System.Decimal)) convertedType = typeof(decimal);
-        // if(type == typeof(System.Object)) convertedType = typeof(object);
-        // if(type == typeof(System.Void)) convertedType = typeof(void);
         return convertedType;
     }
     public static VisualElement GetBaseField<T>(object value, string key =null, object databe = null)
     {
         var type = typeof(T);
         VisualElement field = null;
-        if (type.IsArray)
+        if (type.IsArray && !type.ToString().Contains("UnityEngine.Vector"))
         {
             var array = value as Array;
             if (array == null)
@@ -188,16 +187,20 @@ public static class PropertyInitializerUtility
             {
                 MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
                 MethodInfo generic = method.MakeGenericMethod(Type.GetType(elementType));
-                var inputField = generic.Invoke(null, new object[] { null ,key,databe}) as VisualElement;
+                var inputField = generic.Invoke(null, new object[] { null ,null,databe}) as VisualElement;
+                Debug.Log(listView);
                 return inputField;
             };
-
+            
             Action<VisualElement, int> bindItem = (e, i) =>
             {
-                
+                if(e.Q<Label>() != null)
+                {
+                    e.Q<Label>().text = $"{key}:{i}";
+                }
                 var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
                 property.SetValue(e, array.GetValue(i));
-                e.name = $"{key}:{i}";
+                e.name = $"type(IList)____{key}:{i}";
                 listView.itemsSource[i] = deepCopiedArray.GetValue(i);
 
             };
@@ -218,7 +221,8 @@ public static class PropertyInitializerUtility
             {
                 MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
                 MethodInfo generic = method.MakeGenericMethod(elementType);
-                var inputField = generic.Invoke(null, new object[] { null ,key,databe}) as VisualElement;
+                var inputField = generic.Invoke(null, new object[] { null ,null,databe}) as VisualElement;
+                Debug.Log(inputField);
                 return inputField;
             };
 
@@ -228,10 +232,11 @@ public static class PropertyInitializerUtility
                 {
                     e.Q<Label>().text = $"{key}:{i}";
                 }
-                e.name = $"{key}:{i}";
+                e.name = $"type(IList)____{key}:{i}";
                 var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
                 property.SetValue(e, values[i]);
-                listView.itemsSource[i] = values[i];
+                // listView.itemsSource[i] = values[i];
+            
             };
             listView.itemsSource = values;
             listView.makeItem = makeItem;
@@ -246,7 +251,7 @@ public static class PropertyInitializerUtility
             if (type == typeof(System.Int32) || type == typeof(int))
             {
                 var integerField= new IntegerField();
-                if(value != null)integerField.value = (int)value;
+                integerField.value = value != null ? (int)value : 0;
                 field = integerField;
             }
             else if (type == typeof(System.Single) || type == typeof(float))
@@ -293,11 +298,83 @@ public static class PropertyInitializerUtility
                
                 field = objectField;
             }
+            else if (type == typeof(Vector2))
+            {
+                var objectField= new Vector2Field();
+                objectField.value = (Vector2)value;
+               
+                field = objectField;
+            }else if (type == typeof(Vector2Int))
+            {
+                var objectField= new Vector2IntField();
+                objectField.value = (Vector2Int)value;
+               
+                field = objectField;
+            }
+            else if (type == typeof(Vector3))
+            {
+                var objectField = new Vector3Field();
+                objectField.value = (Vector3)value;
 
+                field = objectField;
+            }
+            else if (type == typeof(Vector3Int))
+            {
+                var objectField = new Vector3IntField();
+                objectField.value = (Vector3Int)value;
+                field = objectField;
+            }
+            else if (type == typeof(Vector4))
+            {
+                var objectField = new Vector4Field();
+                objectField.value = (Vector4)value;
+                field = objectField;
+            }
+            else if (type == typeof(Bounds))
+            {
+                var objectField = new BoundsField();
+                objectField.value = (Bounds)value;
+                field = objectField;
+            }
+            else if (type == typeof(Rect))
+            {
+                var objectField = new RectField();
+                objectField.value = (Rect)value;
+                field = objectField;
+            }
+            else if (type == typeof(RectInt))
+            {
+                var objectField = new RectIntField();
+                objectField.value = (RectInt)value;
+                field = objectField;
+            }
+            else if (type == typeof(AnimationCurve))
+            {
+                var objectField = new CurveField();
+                objectField.value = (AnimationCurve)value;
+                field = objectField;
+            }
+            else if (type == typeof(LayerMask))
+            {
+                var objectField = new LayerField();
+                objectField.value = (LayerMask)value;
+                field = objectField;
+            }
+            else if (type == typeof(Gradient))
+            {
+                var objectField = new GradientField();
+                objectField.value = (Gradient)value;
+                field = objectField;
+            }
+            else if (type == typeof(AnimationClip))
+            {
+                var objectField = new ObjectField();
+                objectField.objectType = type;
+                objectField.value = (AnimationClip)value;
+                field = objectField;
+            }
+          
 
-            // field.AddToClassList("unity-property-field__input");
-            field.name = key;
-            
             var f = field as BaseField<T>;
 
             if (key != null)
@@ -305,37 +382,44 @@ public static class PropertyInitializerUtility
                 f.label = key;
                 f.name = key;
             }
-            // var label = field.Q<Label>();
-            // label.style.marginRight = -13;
-            // label.style.minWidth = 75;
-            // label.style.paddingLeft = 1;
-            // label.style.paddingRight = 15;
-            // label.style.paddingTop = 2;
-            // label.style.overflow = Overflow.Hidden;
-            // f.style.height = new StyleLength(StyleKeyword.Auto);
-            // f.style.bottom = 1;
-            
+           
             f.RegisterValueChangedCallback((evt =>
             {
+                Debug.Log(evt);
                 if (databe != null)
                 {
-                    var names=f.name.Split(":");
+                    var names=f.name.Split("____");
+                    // var listName = names[0];
                     var propertyPath = names[0];
-                    var jsonSerializerTest = databe as JsonSerializeTest;
+                    var propertyInitializer = databe as PropertyInitializer;
                     if (names.Length == 1)
                     {
-                        jsonSerializerTest.UpdateSerializedValue(propertyPath,JsonConvert.SerializeObject(evt.newValue));     
+                        var type = propertyInitializer.target.GetType().GetField(propertyPath).FieldType;
+                        if(!type.ToString().Contains("UnityEngine."))
+                        {
+                            
+                            propertyInitializer.UpdateSerializedValue(propertyPath, JsonConvert.SerializeObject(evt.newValue));
+                        }else
+                        {   
+                            propertyInitializer.UpdateSerializedValue(propertyPath,JsonUtility.ToJson(evt.newValue));     
+                            
+                        }
+                       
                     }
                     else
                     {
-                        VisualElement parent = f;
+                        var split = names[1].Split(":");
+                        var listPropertyName = split[0];
+                        var index = split[1];
+                        VisualElement parent = f.parent;
                         while (parent.parent != null)
                         {
-                            parent = parent.parent;
-                            if (parent.name == propertyPath)
+                            if (parent.name == listPropertyName)
                             {
+                                Debug.Log(parent.name);
                                 break;
                             }
+                            parent = parent.parent;
                         }
                         if (parent.GetType() == typeof(ListView))
                         {
@@ -346,13 +430,13 @@ public static class PropertyInitializerUtility
 
                                 var list = listView.itemsSource as IList;
                                 
-                                list[int.Parse(names[1])] = evt.newValue;
+                                list[int.Parse(index)] = evt.newValue;
                                 var serializedValue = JsonConvert.SerializeObject(list);
-                                jsonSerializerTest.UpdateSerializedValue(propertyPath,serializedValue);
+                                propertyInitializer.UpdateSerializedValue(listPropertyName,serializedValue);
                             }
                         }   
                     }
-                    jsonSerializerTest.SaveToJsonText();
+                    propertyInitializer.SaveToJsonText();
                 }
                
                 

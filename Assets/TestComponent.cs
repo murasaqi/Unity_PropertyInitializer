@@ -7,6 +7,7 @@ public class TestComponent : MonoBehaviour
     
     public List<string> testStrings = new List<string>();
     public List<int> testInts = new List<int>();
+    public List<float> testFloats = new List<float>();
     public float testFloat;
     public int testInt;
     public string testString;
