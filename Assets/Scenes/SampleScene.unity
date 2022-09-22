@@ -387,16 +387,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   testFloat: 0
   testStringList:
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
+  - 2
+  - ' 342'
+  - fadfadf
   testIntList: 0100000002000000
   testFloatList:
   - 1
@@ -496,26 +489,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 733758234}
-  json: "{\r\n  \"testFloat\": 0.0,\r\n  \"testStringList\": \"\\r\\n 1\\r\\n\",\r\n 
-    \"testIntList\": 2,\r\n  \"testFloatList\": 2.0,\r\n  \"testBoolArray\": [\r\n   
-    true,\r\n    false,\r\n    false\r\n  ]\r\n}"
+  json: "{\r\n  \"testFloat\": 0.0,\r\n  \"testStringList\": [\r\n    \" 23\",\r\n   
+    \"1\",\r\n    \"1\",\r\n    \"1\",\r\n    \"1\"\r\n  ],\r\n  \"testIntList\":
+    [\r\n    1,\r\n    2\r\n  ],\r\n  \"testFloatList\": [\r\n    1.0,\r\n    2.0\r\n 
+    ],\r\n  \"testBoolArray\": [\r\n    true,\r\n    false,\r\n    false\r\n  ]\r\n}"
   serializedPropertyInfos:
   - name: testFloat
     type: System.Single
-    value: 0
+    value: 0.0
   - name: testStringList
     type: System.Collections.Generic.List`1[System.String]
-    value: "[\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\",\r\n 
-      \"1\",\r\n  \"1\",\r\n  \"1\",\r\n  \"1\"\r\n]"
+    value: '["\r 23","\r1","\r1","\r1","\r1\r"]'
   - name: testIntList
     type: System.Collections.Generic.List`1[System.Int32]
-    value: "[\r\n  1,\r\n  2\r\n]"
+    value: '[1,2]'
   - name: testFloatList
     type: System.Collections.Generic.List`1[System.Single]
-    value: "[\r\n  1.0,\r\n  2.0\r\n]"
+    value: '[1.0,2.0]'
   - name: testBoolArray
     type: System.Boolean[]
-    value: "[\r\n  true,\r\n  false,\r\n  false\r\n]"
+    value: '[true,false,false]'
 --- !u!4 &2088214221
 Transform:
   m_ObjectHideFlags: 0

@@ -12,6 +12,7 @@ using UnityEditor.UIElements;
 using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Cursor = UnityEngine.UIElements.Cursor;
 
 
 public static class PropertyInitializerUtility
@@ -127,89 +128,24 @@ public static class PropertyInitializerUtility
         // throw new ArgumentException("The object is unknown type");
         return null;
     }
+    
 
-    // public static VisualElement GetField(Type type, object value)
-    // {
-    //     
-    // }
-
-    public static VisualElement GetArrayField(Type type, object value)
+    
+    
+    public static ListView CreateEmptyListView()
     {
-        VisualElement field = null;
-        if (type.IsArray)
-        {
-           
-            var array = value as Array;
-            if (array == null)
-            {
-                // throw new Exception
-                return null;
-            }
-
-            Debug.Log(array);
-            // T[]のインスタンスを作成
-            var copiedArray = Array.CreateInstance(type, array.Length);
-
-            // 要素をコピー
-            foreach (var i in Enumerable.Range(0, array.Length))
-            {
-                copiedArray.SetValue(DeepCopy(array.GetValue(i)), i);
-            }
-
-            
-            Func<VisualElement> makeItem = () => new Label();
-
-            // As the user scrolls through the list, the ListView object
-            // recycles elements created by the "makeItem" function,
-            // and invoke the "bindItem" callback to associate
-            // the element with the matching data item (specified as an index in the list).
-            Action<VisualElement, int> bindItem = (e, i) => (e as Label).text = copiedArray.GetValue(i).ToString();
-
-            // Provide the list view with an explict height for every row
-            // so it can calculate how many items to actually display
-            const int itemHeight = 16;
-
-            var listView = new ListView(copiedArray, itemHeight, makeItem, bindItem);
-
-            listView.selectionType = SelectionType.Multiple;
-
-            listView.onItemsChosen += objects => Debug.Log(objects);
-            listView.onSelectionChange += objects => Debug.Log(objects);
-
-            listView.style.flexGrow = 1.0f;
-            field = listView;
-        } else if (type.GetGenericTypeDefinition() == typeof(List<>))
-        {
-            var values = value as IList;
-            
-            var elementType = type.GetGenericArguments()[0];
-            
-            Func<VisualElement> makeItem = () =>
-            {
-                MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
-                MethodInfo generic = method.MakeGenericMethod(elementType);
-                return generic.Invoke(null, new object[] { null }) as VisualElement;
-            };
-            Action<VisualElement, int> bindItem = (e, i) =>
-            {
-               e.GetType().GetField("value").SetValue(e, values[i]);
-            };
-            const int itemHeight = 16;
-            var listView = new ListView(values, itemHeight, makeItem, bindItem);
-            
-            listView.selectionType = SelectionType.Multiple;
-            
-            listView.onItemsChosen += objects => Debug.Log(objects);
-            listView.onSelectionChange += objects => Debug.Log(objects);
-            
-            listView.style.flexGrow = 1.0f;
-            field = listView;
-            
-            
-            
-        }
-
-        return field;
+        const int itemHeight = 16;
+        var listView = new ListView();
+        listView.showAddRemoveFooter = true;
+        listView.selectionType = SelectionType.Multiple;
+        listView.reorderable = true;
+        listView.reorderMode = ListViewReorderMode.Animated;
+        listView.showBorder = true;
+        listView.showFoldoutHeader = true;
+        listView.showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly;
+        listView.showBoundCollectionSize = true;
+        listView.showAddRemoveFooter = true;
+        return listView;
     }
 
     public static Type SystemTypeToUnityObjectType(Type type)
@@ -238,25 +174,21 @@ public static class PropertyInitializerUtility
         VisualElement field = null;
         if (type.IsArray)
         {
-           Debug.Log(value);
             var array = value as Array;
             if (array == null)
             {
                 return null;
             }
-
-            var elementType = typeof(T).GetType().ToString().Replace("[]", "");
+            var listView = CreateEmptyListView();
+            var elementType = typeof(T).ToString().Replace("[]", "");
             var deepCopiedArray = DeepCopy(array) as Array;
 
             
             Func<VisualElement> makeItem = () =>
             {
-                Debug.Log(elementType);
                 MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
                 MethodInfo generic = method.MakeGenericMethod(Type.GetType(elementType));
                 var inputField = generic.Invoke(null, new object[] { null ,key,databe}) as VisualElement;
-                // inputField.Insert(0,new Label());
-
                 return inputField;
             };
 
@@ -265,88 +197,47 @@ public static class PropertyInitializerUtility
                 
                 var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
                 property.SetValue(e, array.GetValue(i));
-                // Debug.Log(property.GetValue(e));
-                // e.Q<Label>().text = $"{key}:{i}";
-                // e.name = $"{key}:{i}";
+                e.name = $"{key}:{i}";
+                listView.itemsSource[i] = deepCopiedArray.GetValue(i);
 
             };
-            const int itemHeight = 16;
-
-            var listView = new ListView(deepCopiedArray, itemHeight, makeItem, bindItem);
-
-            listView.selectionType = SelectionType.Multiple;
-
-            listView.onItemsChosen += objects => Debug.Log(objects);
-            listView.onSelectionChange += objects => Debug.Log(objects);
-            listView.showFoldoutHeader = true;
-            listView.showBoundCollectionSize = true;    
-            listView.style.flexGrow = 1.0f;
+           
+            listView.itemsSource = deepCopiedArray;
+            listView.makeItem = makeItem;
+            listView.bindItem = bindItem;
+            listView.name = key;
+            listView.headerTitle = key;
             field = listView;
         } else if (type.IsGenericType &&  type.GetGenericTypeDefinition() == typeof(List<>))
         {
-            Debug.Log(value);
             var elementType = type.GetGenericArguments()[0];
             var values = value as IList;
 
-            var listView = new ListView();
+            var listView = CreateEmptyListView();
             Func<VisualElement> makeItem = () =>
             {
                 MethodInfo method = typeof(PropertyInitializerUtility).GetMethod("GetBaseField");
                 MethodInfo generic = method.MakeGenericMethod(elementType);
                 var inputField = generic.Invoke(null, new object[] { null ,key,databe}) as VisualElement;
-                // inputField.Insert(0,new Label());
-
                 return inputField;
             };
 
             Action<VisualElement, int> bindItem = (e, i) =>
             {
-                
+                if(e.Q<Label>() != null)
+                {
+                    e.Q<Label>().text = $"{key}:{i}";
+                }
+                e.name = $"{key}:{i}";
                 var property = e.GetType().GetProperty("value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.SetProperty);
                 property.SetValue(e, values[i]);
-                // Debug.Log(property.GetValue(e));
-                // e.Q<Label>().text = $"{key}:{i}";
-                // e.name = $"{key}:{i}";
-
+                listView.itemsSource[i] = values[i];
             };
-
-            const int itemHeight = 16;
-
             listView.itemsSource = values;
-            listView.fixedItemHeight = itemHeight;
             listView.makeItem = makeItem;
             listView.bindItem = bindItem;
-            listView.selectionType = SelectionType.Multiple;
-
-            listView.onItemsChosen += objects => Debug.Log(objects);
-            listView.onSelectionChange += objects =>
-            {
-                // var container =listView.Q<VisualElement>("unity-content-container");
-                // for (int i = 0; i < container.childCount; i++)
-                // {
-                //
-                //     var inputField = container[i].ElementAt(1);
-                //     if (inputField.GetType().DeclaringType == typeof(UnityEngine.UIElements.TextField))
-                //     {
-                //         var textField = container[i].Q<TextField>();
-                //         var jsonSerializeTest = databe as JsonSerializeTest;
-                //
-                //         var propertyPath = textField.name.Split(",").First();
-                //         // var index = textField.na;
-                //         Debug.Log(jsonSerializeTest.jObject[propertyPath]);
-                //         // Debug.Log(textField.value);
-                //     }
-                //     else
-                //     {
-                //         
-                //     }
-                //     
-                //    
-                // }
-            };
-
-            listView.style.flexGrow = 1.0f;
-
+            listView.name = key;
+            listView.headerTitle = key;
             field = listView;
             
         }
@@ -404,6 +295,7 @@ public static class PropertyInitializerUtility
             }
 
 
+            // field.AddToClassList("unity-property-field__input");
             field.name = key;
             
             var f = field as BaseField<T>;
@@ -413,6 +305,15 @@ public static class PropertyInitializerUtility
                 f.label = key;
                 f.name = key;
             }
+            // var label = field.Q<Label>();
+            // label.style.marginRight = -13;
+            // label.style.minWidth = 75;
+            // label.style.paddingLeft = 1;
+            // label.style.paddingRight = 15;
+            // label.style.paddingTop = 2;
+            // label.style.overflow = Overflow.Hidden;
+            // f.style.height = new StyleLength(StyleKeyword.Auto);
+            // f.style.bottom = 1;
             
             f.RegisterValueChangedCallback((evt =>
             {
@@ -423,49 +324,45 @@ public static class PropertyInitializerUtility
                     var jsonSerializerTest = databe as JsonSerializeTest;
                     if (names.Length == 1)
                     {
-                        jsonSerializerTest.jObject[propertyPath] = JToken.FromObject(evt.newValue);     
+                        jsonSerializerTest.UpdateSerializedValue(propertyPath,JsonConvert.SerializeObject(evt.newValue));     
                     }
                     else
                     {
-                        Debug.Log(jsonSerializerTest.jObject[propertyPath]);
+                        VisualElement parent = f;
+                        while (parent.parent != null)
+                        {
+                            parent = parent.parent;
+                            if (parent.name == propertyPath)
+                            {
+                                break;
+                            }
+                        }
+                        if (parent.GetType() == typeof(ListView))
+                        {
+                            
+                            var listView = parent as ListView;
+                            if (listView != null && listView.itemsSource != null)
+                            {
+
+                                var list = listView.itemsSource as IList;
+                                
+                                list[int.Parse(names[1])] = evt.newValue;
+                                var serializedValue = JsonConvert.SerializeObject(list);
+                                jsonSerializerTest.UpdateSerializedValue(propertyPath,serializedValue);
+                            }
+                        }   
                     }
-                   
-                    // Debug.Log($"{jsonSerializerTest.jObject[key]}");
                     jsonSerializerTest.SaveToJsonText();
                 }
                
                 
             }));
-
-
-            // var methods =  typeof(BaseField<>).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            
-            // Debug.Log(typeof(BaseField<T>));
-            // Type delegateType = typeof(BaseField<>).GetEvent("RegisterValueChangedCallback").EventHandlerType;
-            // Debug.Log(delegateType);
-            // MethodInfo invoke = delegateType.GetMethod("Invoke");
-            // ParameterInfo[] pars = invoke.GetParameters();
-            // var method = f.GetType().GetInterface("INotifyValueChangedExtensions").GetMethod("RegisterValueChangedCallback", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)
-            //     .MakeGenericMethod(type);
-            // //
-            // // method.Invoke(field, new object[] { null, callback });
-            // Debug.Log(method);
-            //
-            // Debug.Log(Type.GetType("UnityEngine.UIElements.EventCallback`1"));
         }
-                
         return field;
 
 
     }
 
-
-    // private static void SetLabel(object inputField, string text)
-    // {
-    //     dynamic baseField = inputField as dynamic;
-    //     baseField.label = text;
-    // }
-  
 
 
     static T BinaryCopy<T>(T source)

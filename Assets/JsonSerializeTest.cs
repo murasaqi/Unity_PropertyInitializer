@@ -3,16 +3,18 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using UnityEngine.WSA;
 
 
 [Serializable]
-public struct SerializedPropertyInfo
+public class SerializedPropertyInfo
 {
     public string name;
     public string type;
@@ -22,44 +24,25 @@ public struct SerializedPropertyInfo
 [CustomEditor(typeof(JsonSerializeTest))]
 public class JsonSerializeTestEditor: Editor
 {
+    private VisualElement serializedPropertyContainer;
     public override VisualElement CreateInspectorGUI()
     {
         var jsonSerializeTest =serializedObject.targetObject as JsonSerializeTest;
-        // jsonSerializeTest.json = "";
         var root = new VisualElement();
         
         root.Add(new PropertyField(serializedObject.FindProperty("target")));
         var json = new PropertyField(serializedObject.FindProperty("json"));
-        root.Add(new PropertyField(serializedObject.FindProperty("serializedPropertyInfos")));
         root.Add(json);
-
-        var fields = jsonSerializeTest.target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        jsonSerializeTest.jObject = JObject.Parse(jsonSerializeTest.json);
-        var serializedTargetObject = new SerializedObject(serializedObject.FindProperty("target").objectReferenceValue);
-        foreach (var fSerializedPropertyInfo in jsonSerializeTest.serializedPropertyInfos)
-        {
-            
-            var valueStr =fSerializedPropertyInfo.value;
-            
-            // var f =jsonSerializeTest.target.GetType().GetField(fSerializedPropertyInfo.name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            
-            // TODO : JsonのKeyからプロパティを算出してそのプロパティの型にキャストしたJsonのValueで初期化する
-            var name = fSerializedPropertyInfo.name;
-            var typ = Type.GetType(fSerializedPropertyInfo.type);
-            var field =typeof(PropertyInitializerUtility)
-                .GetMethod("GetBaseField")
-                .MakeGenericMethod(Type.GetType(fSerializedPropertyInfo.type))
-                .Invoke(null, new object[] {jsonSerializeTest.ConvertJsonStrToObject(typ,valueStr) ,name ,jsonSerializeTest}) as VisualElement;
-            //
-            if(field !=null)root.Add(field);
-            
-        }
-        
-        
-
+        serializedPropertyContainer = new VisualElement();
+        root.Add(serializedPropertyContainer);
+        InitializeSerializedValueUI(jsonSerializeTest);
         var serializeButton = new Button();
         serializeButton.text = "Serialize";
-        serializeButton.clicked += jsonSerializeTest.ToJson;
+        serializeButton.clicked += () =>
+        {
+            jsonSerializeTest.ToJson();
+            InitializeSerializedValueUI(jsonSerializeTest);
+        };
         root.Add(serializeButton);
         
         var applyButton = new Button();
@@ -68,6 +51,24 @@ public class JsonSerializeTestEditor: Editor
         root.Add(applyButton);
         // root.Add(button);
         return root;
+    }
+
+    private void InitializeSerializedValueUI(JsonSerializeTest jsonSerializeTest)
+    {
+        serializedPropertyContainer.Clear();
+        foreach (var fSerializedPropertyInfo in jsonSerializeTest.serializedPropertyInfos)
+        {
+            
+            var valueStr =fSerializedPropertyInfo.value;
+            var name = fSerializedPropertyInfo.name;
+            var typ = Type.GetType(fSerializedPropertyInfo.type);
+            var field =typeof(PropertyInitializerUtility)
+                .GetMethod("GetBaseField")
+                .MakeGenericMethod(Type.GetType(fSerializedPropertyInfo.type))
+                .Invoke(null, new object[] {jsonSerializeTest.ConvertJsonStrToObject(typ,valueStr) ,name ,jsonSerializeTest}) as VisualElement;
+            if(field !=null)serializedPropertyContainer.Add(field);
+            
+        }
     }
 
    
@@ -80,7 +81,7 @@ public class JsonSerializeTest : MonoBehaviour
     public string json;
     public List<SerializedPropertyInfo> serializedPropertyInfos = new List<SerializedPropertyInfo>();
     public JObject jObject;
-    
+    public Dictionary<string, SerializedPropertyInfo> serializedPropertyInfoDic = new Dictionary<string, SerializedPropertyInfo>();
     // Start is called before the first frame update
     void Start()
     {
@@ -88,35 +89,44 @@ public class JsonSerializeTest : MonoBehaviour
     }
 
 
-    public void OnValidate()
-    {
-        // throw new NotImplementedException();
-    }
     [ContextMenu("Serialize")]
     public void ToJson()
     {
         serializedPropertyInfos.Clear();
+        serializedPropertyInfoDic.Clear();
         json = JsonUtility.ToJson(target);
         var fields = target.GetType().GetFields( BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
         jObject = JObject.Parse(json);
 
         foreach (var f in fields)
         {
+           
             var value = PropertyInitializerUtility.DeepCopy(f.GetValue(target));
             var type = value.GetType();
             var typeName = value.GetType().ToString();
-            var valueToStr = jObject[f.Name].ToString();
-            Debug.Log(value);
+            var valueToStr = JsonConvert.SerializeObject(f.GetValue(target));
+          
             serializedPropertyInfos.Add(new SerializedPropertyInfo()
             {
                 name = f.Name,
                 type = typeName,
                 value = valueToStr
             });
+            
+            serializedPropertyInfoDic.Add(f.Name,serializedPropertyInfos.Last());
         }
         
     }
 
+    public void UpdateSerializedValue(string key, string value)
+    {
+        serializedPropertyInfos.Find(match:m=>m.name == key).value = value;
+    }
+    
+    public static string[] ParseJsonArrayValue(string value)
+    {
+        return value.Replace("\n","").Replace("[","").Replace("]","").Replace("\"", "").Split(",");
+    }
     public object ConvertJsonStrToObject(Type type, string jsonValue)
     {
         
@@ -132,10 +142,8 @@ public class JsonSerializeTest : MonoBehaviour
         if(type.IsArray)
         {
             var elementType = Type.GetType(type.ToString().Replace("[]", ""));
-            var parsed = jsonValue.Replace("[","").Replace("]","").Replace(" \"", "").Replace("\"", "").Split(",");
-            // var deserializedObject = Activator.CreateInstance(type) as Array;
+            var parsed = ParseJsonArrayValue(jsonValue);
             var array = Array.CreateInstance(elementType, parsed.Length) as Array;
-            
             for (int i = 0; i < parsed.Length; i++)
             {
                 try
@@ -143,7 +151,6 @@ public class JsonSerializeTest : MonoBehaviour
                     var result = Convert.ChangeType(parsed[i], elementType);
                     if (result != null)
                     {
-                        Debug.Log(result);
                         array.SetValue(result,i);
                     }
                 }
@@ -157,10 +164,9 @@ public class JsonSerializeTest : MonoBehaviour
             return array;
         }else if (type.GetGenericTypeDefinition() == typeof(List<>))
         {
+            
             var elementType = type.GetGenericArguments()[0];
-            Debug.Log(elementType);
-            // Debug.Log($"{type.GetGenericTypeDefinition()}{elementType},{deserializedObject}");
-            var parsed = jsonValue.Replace("[","").Replace("]","").Replace(" \"", "").Replace("\"", "").Split(",").ToList();
+            var parsed = ParseJsonArrayValue(jsonValue).ToList();//jsonValue.Replace("\n","").Replace("[","").Replace("]","").Replace(" \"", "").Replace("\"", "").Split(",").ToList();
            
             var copiedArray =  (IList) Activator.CreateInstance(type);
             copiedArray.Clear();
@@ -171,7 +177,6 @@ public class JsonSerializeTest : MonoBehaviour
                     var result = Convert.ChangeType(x, elementType);
                     if (result != null)
                     {
-                        Debug.Log(result);
                         copiedArray.Add(result);
                     }
                 }
@@ -183,17 +188,11 @@ public class JsonSerializeTest : MonoBehaviour
            
             });
 
-  
-            foreach (var element in copiedArray)
-            {
-                Debug.Log(element);
-            }
-
+            
             return copiedArray;
         }
         else
         {
-            // deserializedObject = JsonConvert.DeserializeObject(jsonValue, type);
             return JsonConvert.DeserializeObject(jsonValue, type);
         }
 
@@ -212,26 +211,23 @@ public class JsonSerializeTest : MonoBehaviour
             var deserializedType =  Type.GetType(serializedPropertyInfo.type);
             var deserializedObject = ConvertJsonStrToObject(deserializedType, serializedPropertyInfo.value);
             field.SetValue(target,deserializedObject);
-            // var propertyField = target.GetType().GetField(serializedPropertyInfo.name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);           
-            // if (propertyField != null)
-            // {
-            //     
-            //     var type =propertyField.GetValue(target).GetType();
-            //    
-            //     Debug.Log($"{serializedPropertyInfo.name} {serializedPropertyInfo.value}");
-            //     Debug.Log(type);
-            //     var valueStr = "{" + '"' + serializedPropertyInfo.name + '"' + ":" + serializedPropertyInfo.value + "}";
-            //     Debug.Log(valueStr);
-            //     JsonUtility.FromJsonOverwrite(valueStr,target);
-            //     // var value = JsonUtility.FromJson(, type);
-            //     // propertyField.SetValue(target, value);
-            // } 
+          
         }
     }
 
     public void SaveToJsonText()
     {
-        json = jObject.ToString();
+        var stringBuilder = new StringBuilder();
+        stringBuilder.AppendLine("{");
+        foreach (var serializedPropertyInfo in serializedPropertyInfos)
+        {
+            var deserializedType = Type.GetType(serializedPropertyInfo.type);
+            var deserializedObject = ConvertJsonStrToObject(deserializedType, serializedPropertyInfo.value);
+            stringBuilder.AppendLine('"' + serializedPropertyInfo.name + '"' + ":" + JsonConvert.SerializeObject(deserializedObject) + ",");
+        }
+        stringBuilder.AppendLine("}");
+        
+        json = stringBuilder.ToString();
     }
     // Update is called once per frame
     void Update()
